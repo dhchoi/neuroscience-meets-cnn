@@ -24,7 +24,6 @@ def load_data(from_stored_data=False):
     data_Y = None
 
     for num_subject in range(num_subjects):
-        print 'starting ' + str(num_subject)
         subject_data = sio.loadmat("data/data-science-P" + str(num_subject + 1) + ".mat")
 
         # big three headers
@@ -38,9 +37,6 @@ def load_data(from_stored_data=False):
         coordToCol = meta["coordToCol"][0][0]
 
         for num_trial in range(len(trials)):
-            if num_trial % 10 == 0:
-                print num_trial
-
             # create feature vectors
             voxels = trials[num_trial][0][0]
             feature_vec = np.zeros(dim_x * dim_y * dim_z)
@@ -51,6 +47,7 @@ def load_data(from_stored_data=False):
                 z = colInfo[2]-1 # same 
                 feature_vec[z * (dim_x * dim_y) + y * dim_x + x] = voxels[i]
             feature_vec = sp.csr_matrix(feature_vec)
+            
             # create label vectors
             trial_info = info[num_trial]
             cond_number = trial_info[1][0][0] - 2  # starts from 2 (2 ~ 13)
