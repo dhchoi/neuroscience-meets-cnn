@@ -15,6 +15,12 @@ file_Y = "y.p"
 
 
 def load_data(from_stored_data=False):
+    """ Loads all subjects' .mat files and concatenates them into one whole data set and label set.
+
+    :param from_stored_data: True if no need to create the sets. Will load pre-created ones within same directory
+    :return: data set data_X and label set data_Y
+    """
+
     if from_stored_data:
         data_X = pickle.load(open(file_X, "rb"))
         data_Y = pickle.load(open(file_Y, "rb"))
@@ -41,13 +47,13 @@ def load_data(from_stored_data=False):
             voxels = trials[num_trial][0][0]
             feature_vec = np.zeros(dim_x * dim_y * dim_z)
             for i in range(len(voxels)):
-                colInfo = colToCoord[i, :] 
-                x = colInfo[0]-1 # index in data starts from 1 
-                y = colInfo[1]-1 # same 
-                z = colInfo[2]-1 # same 
+                colInfo = colToCoord[i, :]
+                x = colInfo[0] - 1  # index in data starts from 1
+                y = colInfo[1] - 1  # same
+                z = colInfo[2] - 1  # same
                 feature_vec[z * (dim_x * dim_y) + y * dim_x + x] = voxels[i]
             feature_vec = sp.csr_matrix(feature_vec)
-            
+
             # create label vectors
             trial_info = info[num_trial]
             cond_number = trial_info[1][0][0] - 2  # starts from 2 (2 ~ 13)
@@ -65,5 +71,43 @@ def load_data(from_stored_data=False):
     return data_X, data_Y
 
 
+def convert_1d_to_3d(data_X, data_Y):
+    """
+    Parses the 1d data set into three separate data sets for each axis.
+    Each trial's data is split into [0th slice, ..., (dim-1)th slice] for each x, y, and z.
+    To get only the Nth slices of an axis across all trials, traverse through data_dim_axis by index [N, N + dim-1, N + 2*dim-1, ...]
+
+    :param data_X: whole data set
+    :param data_Y: whole label set
+    :return: data sets and label sets for each axis
+    """
+
+    data_dim_x = []  # slices along x-axis (has shape of (total_trials * dim_x, dim_z, dim_y))
+    data_dim_x_label = []  # contains (total_trials * dim_x) labels
+    data_dim_y = []  # slices along y-axis (has shape of (total_trials * dim_y, dim_z, dim_x))
+    data_dim_y_label = []  # contains (total_trials * dim_y) labels
+    data_dim_z = []  # slices along z-axis (has shape of (total_trials * dim_z, dim_y, dim_x))
+    data_dim_z_label = []  # contains (total_trials * dim_z) labels
+
+    for num_trial in range(data_X.shape[0]):
+        label = data_Y[num_trial]
+        data_1d = data_X[num_trial]
+        data_3d = np.squeeze(np.asarray(data_1d.todense())).reshape((dim_z, dim_y, dim_x))
+        for x in range(dim_x):
+            data_dim_x.append(data_3d[:, :, x])
+            data_dim_x_label.append(label)
+        for y in range(dim_y):
+            data_dim_y.append(data_3d[:, y, :])
+            data_dim_y_label.append(label)
+        for z in range(dim_z):
+            data_dim_z.append(data_3d[z, :, :])
+            data_dim_z_label.append(label)
+
+    return np.array(data_dim_x), np.array(data_dim_x_label), \
+           np.array(data_dim_y), np.array(data_dim_y_label), \
+           np.array(data_dim_z), np.array(data_dim_z_label)
+
+
 if __name__ == "__main__":
     data_X, data_Y = load_data()
+    data_dim_x, data_dim_x_label, data_dim_y, data_dim_y_label, data_dim_z, data_dim_z_label = convert_1d_to_3d(data_X, data_Y)

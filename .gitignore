@@ -119,5 +119,5 @@ pyvenv.cfg
 pip-selfcheck.json
 
 ### Custom
-x_sparse.p
+*.p
 data/
