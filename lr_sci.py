@@ -18,7 +18,6 @@ Y = (Y.dot(temp.T)).ravel()
 h = .02  # step size
 
 #logreg = linear_model.LogisticRegression(penalty='l2', solver='sag', verbose=1)
-logreg = linear_model.LogisticRegression(penalty='l2', solver='newton_cg', verbose=1)
+logreg = linear_model.LogisticRegression(penalty='l2', solver='newton-cg', n_jobs = 4, verbose=1)
 
-# we create an instance of Neighbours Classifier and fit the data.
-logreg.fit(X, Y)
+logreg.fit(X[range(360),:], Y[range(360)])

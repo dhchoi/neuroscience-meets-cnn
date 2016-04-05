@@ -10,7 +10,7 @@ dim_x = 51
 dim_y = 61
 dim_z = 23
 
-file_X = "x.p"
+file_X = "x_sparse.p"
 file_Y = "y.p"
 
 
@@ -94,14 +94,21 @@ def convert_1d_to_3d(data_X, data_Y):
         data_1d = data_X[num_trial]
         data_3d = np.squeeze(np.asarray(data_1d.todense())).reshape((dim_z, dim_y, dim_x))
         for x in range(dim_x):
-            data_dim_x.append(data_3d[:, :, x])
-            data_dim_x_label.append(label)
+            x_slice = data_3d[:,:,x]
+            # append only if the slice is not empty 
+            if x_slice.sum() != 0:
+                data_dim_x.append(data_3d[:, :, x])
+                data_dim_x_label.append(label)
         for y in range(dim_y):
-            data_dim_y.append(data_3d[:, y, :])
-            data_dim_y_label.append(label)
+            y_slice = data_3d[:, y, :]
+            if y_slice.sum() != 0:
+                data_dim_y.append(data_3d[:, y, :])
+                data_dim_y_label.append(label)
         for z in range(dim_z):
-            data_dim_z.append(data_3d[z, :, :])
-            data_dim_z_label.append(label)
+            z_slice = data_3d[:, :, z]
+            if z_slice.sum() != 0:
+                data_dim_z.append(data_3d[z, :, :])
+                data_dim_z_label.append(label)
 
     return np.array(data_dim_x), np.array(data_dim_x_label), \
            np.array(data_dim_y), np.array(data_dim_y_label), \
