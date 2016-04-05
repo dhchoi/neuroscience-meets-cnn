@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from data import load_data, convert_1d_to_3d
+from data import load_data, convert_1d_to_3d, dim_x, dim_y, dim_z
 
 num_labels = 60
 num_channels = 1  # grayscale
@@ -10,10 +10,6 @@ batch_size = 16
 patch_size = 5
 depth = 16
 num_hidden = 64
-
-dim_x = 51
-dim_y = 61
-dim_z = 23
 
 
 def accuracy(predictions, labels):
@@ -114,8 +110,8 @@ class ConvolutionalNetwork:
 
 
 if __name__ == "__main__":
-    data_X, data_Y = load_data()
-    data_dim_x, data_dim_x_label, data_dim_y, data_dim_y_label, data_dim_z, data_dim_z_label = convert_1d_to_3d(data_X, data_Y)
+    data, labels = load_data()
+    data_dim_x, data_dim_x_label, data_dim_y, data_dim_y_label, data_dim_z, data_dim_z_label = convert_1d_to_3d(data, labels)
 
     convX = ConvolutionalNetwork(dim_z, dim_y)
     convX.set_datasets(dim_x, data_dim_x, data_dim_x_label)
