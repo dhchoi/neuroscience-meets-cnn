@@ -1,4 +1,3 @@
-import pickle
 import numpy as np
 import tensorflow as tf
 from data import load_data, convert_1d_to_3d
@@ -34,7 +33,7 @@ class ConvolutionalNetwork:
         """
         return dataset.reshape((-1, self.image_size_x, self.image_size_y, num_channels)).astype(np.float32)
 
-    def create_datasets(self, dim, data, labels):
+    def set_datasets(self, dim, data, labels):
         num_total_data = 360 * 9 * dim
         num_train_offset = num_total_data / 9 * 7
         num_valid_offset = num_train_offset + (num_total_data / 9)
@@ -51,14 +50,14 @@ class ConvolutionalNetwork:
         print 'Validation set', self.valid_dataset.shape, self.valid_labels.shape
         print 'Test set', self.test_dataset.shape, self.test_labels.shape
 
-    def create_graph(self):
+    def train(self):
         """
         Two convolutional layers, followed by one fully connected layer, with stride of 2.
         """
 
-        self.graph = tf.Graph()
+        graph = tf.Graph()
 
-        with self.graph.as_default():
+        with graph.as_default():
             # Input data.
             tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, self.image_size_x, self.image_size_y, num_channels))
             tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
@@ -98,8 +97,7 @@ class ConvolutionalNetwork:
             self.valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
             self.test_prediction = tf.nn.softmax(model(tf_test_dataset))
 
-    def train(self):
-        with tf.Session(graph=self.graph) as session:
+        with tf.Session(graph=graph) as session:
             tf.initialize_all_variables().run()
             print('Initialized')
             for step in range(num_steps):
@@ -120,6 +118,5 @@ if __name__ == "__main__":
     data_dim_x, data_dim_x_label, data_dim_y, data_dim_y_label, data_dim_z, data_dim_z_label = convert_1d_to_3d(data_X, data_Y)
 
     convX = ConvolutionalNetwork(dim_z, dim_y)
-    convX.create_datasets(dim_x, data_dim_x, data_dim_x_label)
-    convX.create_graph()
+    convX.set_datasets(dim_x, data_dim_x, data_dim_x_label)
     convX.train()
