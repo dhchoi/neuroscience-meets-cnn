@@ -2,6 +2,7 @@
 \usepackage{nips15submit_e,times}
 \usepackage{hyperref}
 \usepackage{url}
+\usepackage{graphicx,float,wrapfig}
 %\documentstyle[nips14submit_09,times,art10]{article} % For LaTeX 2.09
 
 
@@ -9,11 +10,11 @@
 
 
 \author{
-Donghyun Choi \\
-Department of Computer Science\\
+Dong Hyun Choi \\
+Department of Electrical and Computer Engineering\\
 Carnegie Mellon University\\
 Pittsburgh, PA 15213 \\
-\texttt{@andrew.cmu.edu} \\
+\texttt{donghyuc@andrew.cmu.edu} \\
 \And
 Yongjin Cho \\
 School of Computer Science \\
@@ -24,6 +25,7 @@ Pittsbrugh, PA 15213\\
 
 \newcommand{\fix}{\marginpar{FIX}}
 \newcommand{\new}{\marginpar{NEW}}
+\def\code#1{\texttt{#1}}
 
 \nipsfinalcopy % Uncomment for camera-ready version
 
@@ -38,40 +40,45 @@ We did what on which data set (using CNNs to decode 3-D image and predict word b
 
 \section{Introduction}
 
-Functional Magnetic Resonance Imaging (fMRI), a brain imaging technology, enabled us to know which part of the brain is active at the moment of various tasks. Beyond identifying the regions involved with certain tasks, there were attempts to interpret the state of mind given the fMRI of a brain. Specifically, Mitchell et al (2003) have used machine learning algorithms to predict the mental state given a fMRI image. Further researches tried to develop cross-subject interpretation of fMRI image, and Ramish (2004) used cross-subject clustering to improve cross-subject predictions.
+Functional Magnetic Resonance Imaging (fMRI) is a brain imaging technology that enables us to know which part of the brain is active at any moment of a given task. Beyond trying to identify which brain region relates to certain tasks, there have been numerous attempts at trying to interpret the brain's activation state given the fMRI of itself. Specifically, Mitchell et al \textcolor{red}{[X]} has showed that machine learning algorithms could be used to predict what the brain was thinking of based on fMRI images depicting voxel activations. Further researchers, such as Ramish \textcolor{red}{[X]}, have also tried at developing cross-subject interpretation of fMRI images by using cross-subject clustering for improving the accuracy.
 
-Convolutional Neural Network (CNN) has shown good performance in various fields like image recognition and video recognition. We tried CNN to infer the mental state from a fMRI image using CNN since fMRI itself is a image. At first glance, inferring the mental state of given fMRI image seems like a mere extension of the image classification task. However, what makes this task more complicated is that every person's brain react differently even for the same task. For example, some voxels, a 3-dimensional cube-like unit of our brain fMRI image, are active when a subject is asked to think of a hammer. Yet if another subject is asked to do the very same task, the voxels that were active when the former subject thought of a hammer are not active in the latter subject's fMRI image. We chose CNN because we believe CNN's ability to extract features of image based on adjacency of pixels will give better interpretation of fMRI images.  
+Convolutional Neural Network (CNN) is a recent technology that has shown good performance in various image analysis tasks such as image recognition and video recognition. Therefore, we attempt to use CNN as our main model in this paper to infer the state of the brain from a set of fMRI images. Though the task of inferring the brain's state from fMRI images could be regarded as a simple extension of previous image classification examples, the fact that fMRI images are 3-dimensional and that fMRI images across people can be different for the same task provides various challenges. For example, the voxels being activated while thinking of a certain object will differ depending on the person being inspected. We have chosen CNN as our model because we believe that CNNs will be able to extract general features from brain images that will help at providing better interpretation across all human subjects.
 
-In order to see the relative performance of CNN, we have implemented 2 baseline approaches : logistic regression and artificial neural network. We compare the results of the baseline approaches to those of the CNN based approach and explain what could be the cause of the difference in those performances. 
+In order to see the relative performance of our CNN model, we first implement two baseline approaches: a logistic regression model and an artificial neural network model. We then compare the results of the baseline approaches to those of the CNN based approach and explain what could be the cause of the difference in those performances. 
 
-In this midterm report, we have implemented logistic regression and artificial neural network as baseline. In addition to that, we also implemented a CNN and reported the performance of it. This report contains descriptions of dataset, feature extraction from the dataset, baseline approaches, CNN based approach, problems we tackled on, performances of approaches, and the project direction for the rest of the semester.  
+For this midterm report, we include the details of our completed baseline approaches and the prototype of our CNN model. We also explain about the base dataset, how feature extraction was done from the dataset, the structures of our models, and the various problems that we've approached. We finish the paper by showing the performances of the different approaches and the project direction for the rest of the semester.  
+
 \newpage
 \section{Dataset}
 
-\subsection{Original Dataset}
+\subsection{Base Dataset}
 
-The data consists of nine sets of fMRI images, each set taken from different human subjects. Each subject is given line drawings and noun labels of 60 concrete objects from 12 semantic categories with 5 exemplars per category. 
-Each subject was presented the entire set of 60 stimuli 6 times in a different random order. 
-
+The base dataset includes nine sets of fMRI images, where each set corresponds to each unique human subject. Each image was taken while showing the subject a line drawing of one of the 60 concrete objects across 12 semantic categories. The set of objects were shown six times in random order, creating a total of 360 trials per subject.
+%%%
 The fMRI image was preprocessed to MNI template brain image and further normalized into MNI space and resampled to 3 by 3 by 6 $mm^3$ voxels.
 
-The original dataset we started to work on consists of 9 files, each file containing data for a single subject. And the format of each file is as follows: \begin{itemize}
-\item \textbf{META} : contains identifier of subject, number of trials, number of voxels activated for the subject during the entire trial, dimension of 3-dimensional coordinates of voxels, mapping info from voxel coordinate to voxel column in data, and inverse mapping info. 
-\item \textbf{INFO} : contains word (stimulus), semantic category of the stimulus, and the number of the stimulus has been presented to the subject.
-\item \textbf{DATA} : contains vectors of voxels for each of 360 trials. For each trial, there is a 1 by V voxel vector, where V is provided in \textbf{META} as nvoxel  \\
+This dataset is organized into nine separate files, where each file contains data for a single subject. The format of each file is as the following:
+\begin{itemize}
+	\item \textbf{META} : contains identifier of subject, number of trials, number of voxels activated for the subject during the entire trial, dimension of 3-dimensional coordinates of voxels, mapping info from voxel coordinate to voxel column in data, and inverse mapping info. 
+	\item \textbf{INFO} : contains word (stimulus), semantic category of the stimulus, and the number of the stimulus has been presented to the subject.
+	\item \textbf{DATA} : contains vectors of voxels for each of 360 trials. For each trial, there is a 1 by V voxel vector, where V is provided in \textbf{META} as nvoxel
 \end{itemize}
+%%%
 
-\subsection{Customized Dataset}
+\subsection{Preprocessed Dataset}
 
-For our purpose of training logistic regression classifier and artificial neural network, we customized the original dataset. What we noticed is that for each person, the numbers of voxels activated are different. Thus, when we simply used the 1 by nvoxel vector as a feature vector for each data instance,   each of the subject has different dimension of features. 
+For our purpose of training the baseline models, the base dataset had to be preprocessed due to the irregularity of the number of voxels across all subjects. As the number of activated voxels for each subject were independent from one another, each image was first flattened into a $1-by-n$ feature vector, where $n$ is the number of activated voxels each person had, and then normalized it so that all vectors could have the same dimension $n'$. The value of $n'$ was chosen by the maximum number of voxels there could be inside one fMRI image. This could be determined from the meta info \code{dimx}, \code{dimy}, and \code{dimz} that states the range of each dimension. When normalizing each vector, the \code{colToCoord} meta info was used to map each value in the $1-by-n$ vector to the new $1-by-n'$ vector. As $n' > n$, all points where no \code{colToCoord} was given were initialized to be zero. This eventually created a default set of feature vectors with a dimension of $51 \cdot 61 \cdot 23 = 71553$.
+%Since we were provided the range of x,y,z coordinates of voxels in meta field, for each data instance, we initialized 3-d zero array of dimension (dimx, dimy, dimz), filled corresponding voxel value by using colToCoord info, and flattened the 3-d array, resulting into 1 by dimx*dimy*dimz vector. Thus, the basic feature is to represent each data instance as 1 by dimx*dimy*dimz vector. 
 
-Since we were provided the range of x,y,z coordinates of voxels in meta field, for each data instance, we initialized 3-d zero array of dimension (dimx, dimy, dimz), filled corresponding voxel value by using colToCoord info, and flattened the 3-d array, resulting into 1 by dimx*dimy*dimz vector. Thus, the basic feature is to represent each data instance as 1 by dimx*dimy*dimz vector. 
+The second set of feature vectors was extracted by applying Principal Component Analysis (PCA) to the data matrix $X$, where $X$ was created by stacking the feature vectors vertically as column rows. Thus, the $i_{th}$ row in $X$ would be a $1-by-71553$ vector depicting the $i_{th}$ fMRI image from the original dataset. We used only the first 200 principal components and projected all data onto those components. In this case, each data instance's feature became a $1-by-200$ vector.
 
-And the second type of feature was extracted by applying  
-Linear Discriminant Analysis (LDA) to the data matrix X whose $i$th row is 1 by dimx*dimy*dimz vector of $i$th data instance.
+The last set of feature vectors was extracted by applying Linear Discriminant Analysis (LDA) to the same data matrix $X$ that was used for applying PCA. Class labels were also provided along with the data when applying LDA, where each class label was a mapping from the 60 words that subject was tested for to a number within the range of 0 to 59. This reduced the dimension of each feature vector from the original 71553 to 59.
 
-The third type of feature was extracted by applying Principal Component Analysis (PCA) to the same data matrix X used in LDA extractoin. We extracted the first 200 PCA and projected all data on those principal components. In this case, each data instance's feature is 1 by 200 vector.  
-\section{Baseline Approach I: Logistic Regression}
+\section{Baseline Approaches}
+
+The task for each baseline model is to predict the word of the object that the subject was being shown when the fMRI image was taken. A random choice would provide an accuracy of $1.67\%$, which is the probability of choosing one out of 60 possible candidates. All three types of feature vectors were tested to see which set of feature vectors would yield the best accuracy and performance.
+
+\subsection{Logistic Regression}
 
 As the first baseline approach, we implemented multinomial logistic regression.  
 The L2 regularization was used, and the gradient descent was used for optimization of parameters. 
@@ -79,47 +86,55 @@ The L2 regularization was used, and the gradient descent was used for optimizati
 For evaluation of the classifier's performance, we did nine evaluations such that in $i$ th evaluation, we used all the data from subject except $i$th subject's data for training and evaluated the accuracy of classifier for the unused $i$th subject's data. And we took average of those nine accuracies. 
 
 For Logistic Regression classifier, we used all three types of features described in section 2.2. The results are provided in section 7 along with performances of other approaches. 
-\newpage
-\section{Baseline Approach II: Artificial Neural Network}
+
+\subsection{Artificial Neural Network}
 
 As the second baseline approach, we implemented Artificial Neural Network (ANN) with two hidden layers, each layer having 1024 hidden units, and RELU activation unit. 
 
 For evaluation of the classifier's performance, we did nine evaluations such that in $i$ th evaluation, we used all the data from subject except $i$th subject's data for training and evaluated the accuracy of classifier for the unused $i$th subject's data. And we took average of those nine accuracies. 
 
 For ANN classifier, we used two types of features, LDA and PCA, described in section 2.2. The results are provided in section 7 along with performances of other approaches. When we used the first type feature where each data instance is 1 by xdim*ydim*zdim for each instance, each data instance becomes a sparse vector with nonzero elements ratio being approximately $\frac{1}{3}$. Having very sparse vector representation for each data instance resulted in underflow in back-propagation within ANN, thus we experimented ANN classifier only with PCA and LDA features.  
+
 \section{CNN Architecture}
 
-Talk about it.
+We apply the same task that was used for the baseline models to the CNN model, which was to predict the word from the fMRI image. Three different structures are proposed in order of expected performance improvements. For the first two structures, we use the same CNN structure which consists of two convolutional layers, two pooling layers, and a fully connected layer at the end. ReLU units were chosen to represent each hidden layer, as ReLUs are believed to --- \textcolor{red}{[X]}. Hyperparameters were set to start with a stride of two $(S=2)$, a receptive field size of 5 x 5 $(F=5)$, a slice depth size of 16 $(K=16)$, and a padding size of zero $(P=0)$. These initial hyperparameters are based on the CNN structure that is most popularly used for MNIST demos \textcolor{red}{[X]}, as the image dimensions of our brain images (23-by-61, 23-by-51, or 61-by-51) were not significantly different from that of MNIST images (28-by-28). Only the first proposed structure has been fully tested at the time of this report.
 
-\subsection{Layers Used}
+\subsection{Ensemble of CNNs With Voting}
 
-Talk about it.
+As our CNN structure was created to mainly deal with 2-dimensional images, the original 3-dimensional data was split into sets of 2-dimensional images along each $x$, $y$, and $z$ axis to match the input format that the model requires. Three separate CNN models were created for data from each axis, and the final prediction was determined by the vote from all three. Figure 1 shows the ensemble of the three CNN models. When all three models predicted different labels, the prediction with the strongest confidence rate was chosen as the tie breaker.
 
-\subsubsection{Layer 1}
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=0.26\textheight]{./img/cnn_proto_a.png}
+	\caption{Structure of ensemble of CNNs by predicting the final label through voting.}
+\end{figure}
 
-Talk about it.
+However, each CNN model reported very low accuracy for their label prediction, where the accuracy was no different from choosing the label at random. As each CNN model was not performing reasonably, the end vote was also no different from choosing any label. We provide some analysis of the possible causes of this performance at the results section of this paper.
 
-\subsubsection{Layer 2}
-
-Talk about it.
-
-\subsection{Units Used}
-
-Talk about it.
-
-\subsubsection{Unit 1}
+\subsection{Ensemble of CNNs With Connected End Layers}
 
 Talk about it.
 
-\subsection{Other Techniques or Stuff}
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=0.26\textheight]{./img/cnn_proto_b.png}
+	\caption{Structure of ensembles of CNNs by connecting all end layers.}
+\end{figure}
 
-\section{Dealing with 3D}
+\subsection{3-dimensional Convolutional Layers}
 
 Talk about it.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=0.2\textheight]{./img/cnn_proto_c.png}
+	\caption{Structure of a CNN with 3-dimensional convolutional layers.}
+\end{figure}
 
 \section{Results}
+
 Show table. Compare accuracies based on different settings. Compare with baseline and random choice.
-\begin{table}[h]
+\begin{table}[H]
 \centering
 \caption{Logistic Regression}
 \label{my-label}
@@ -132,7 +147,7 @@ LDA                   &                   \\ \hline
 \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
 \caption{Artificial Neural Network}
 \label{my-label}
@@ -144,7 +159,7 @@ LDA                   &                   \\ \hline
 \end{tabular}
 \end{table}
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
 \caption{Convolutional Neural Network}
 \label{my-label}
