@@ -9,48 +9,23 @@
 
 
 \author{
-David S.~Hippocampus\thanks{ Use footnote for providing further information
-about author (webpage, alternative address)---\emph{not} for acknowledging
-funding agencies.} \\
+Donghyun Choi \\
 Department of Computer Science\\
-Cranberry-Lemon University\\
+Carnegie Mellon University\\
 Pittsburgh, PA 15213 \\
-\texttt{hippo@cs.cranberry-lemon.edu} \\
+\texttt{@andrew.cmu.edu} \\
 \And
-Coauthor \\
-Affiliation \\
-Address \\
-\texttt{email} \\
-\AND
-Coauthor \\
-Affiliation \\
-Address \\
-\texttt{email} \\
-\And
-Coauthor \\
-Affiliation \\
-Address \\
-\texttt{email} \\
-\And
-Coauthor \\
-Affiliation \\
-Address \\
-\texttt{email} \\
-(if needed)\\
+Yongjin Cho \\
+School of Computer Science \\
+Carnegie Mellon University \\
+Pittsbrugh, PA 15213\\
+\texttt{ycho1@andrew.cmu.edu} \\
 }
-
-% The \author macro works with any number of authors. There are two commands
-% used to separate the names and addresses of multiple authors: \And and \AND.
-%
-% Using \And between authors leaves it to \LaTeX{} to determine where to break
-% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
-% puts 3 of 4 authors names on the first line, and the last on the second
-% line, try using \AND instead of \And before the third author name.
 
 \newcommand{\fix}{\marginpar{FIX}}
 \newcommand{\new}{\marginpar{NEW}}
 
-%\nipsfinalcopy % Uncomment for camera-ready version
+\nipsfinalcopy % Uncomment for camera-ready version
 
 \begin{document}
 
@@ -63,19 +38,55 @@ We did what on which data set (using CNNs to decode 3-D image and predict word b
 
 \section{Introduction}
 
-People tried stuff. Some current techniques are what.
-To do something, we did what. In order to do so, this stuff and that stuff needed to be done.
-The specific contributions of this paper are as follows.
-In the end, the project suggests what.
+Functional Magnetic Resonance Imaging (fMRI), a brain imaging technology, enabled us to know which part of the brain is active at the moment of various tasks. Beyond identifying the regions involved with certain tasks, there were attempts to interpret the state of mind given the fMRI of a brain. Specifically, Mitchell et al (2003) have used machine learning algorithms to predict the mental state given a fMRI image. Further researches tried to develop cross-subject interpretation of fMRI image, and Ramish (2004) used cross-subject clustering to improve cross-subject predictions.
 
+Convolutional Neural Network (CNN) has shown good performance in various fields like image recognition and video recognition. We tried CNN to infer the mental state from a fMRI image using CNN since fMRI itself is a image. At first glance, inferring the mental state of given fMRI image seems like a mere extension of the image classification task. However, what makes this task more complicated is that every person's brain react differently even for the same task. For example, some voxels, a 3-dimensional cube-like unit of our brain fMRI image, are active when a subject is asked to think of a hammer. Yet if another subject is asked to do the very same task, the voxels that were active when the former subject thought of a hammer are not active in the latter subject's fMRI image. We chose CNN because we believe CNN's ability to extract features of image based on adjacency of pixels will give better interpretation of fMRI images.  
+
+In order to see the relative performance of CNN, we have implemented 2 baseline approaches : logistic regression and artificial neural network. We compare the results of the baseline approaches to those of the CNN based approach and explain what could be the cause of the difference in those performances. 
+
+In this midterm report, we have implemented logistic regression and artificial neural network as baseline. In addition to that, we also implemented a CNN and reported the performance of it. This report contains descriptions of dataset, feature extraction from the dataset, baseline approaches, CNN based approach, problems we tackled on, performances of approaches, and the project direction for the rest of the semester.  
+\newpage
 \section{Dataset}
 
-Talk about the dataset.
+\subsection{Original Dataset}
 
-\section{Baseline Approach}
+The data consists of nine sets of fMRI images, each set taken from different human subjects. Each subject is given line drawings and noun labels of 60 concrete objects from 12 semantic categories with 5 exemplars per category. 
+Each subject was presented the entire set of 60 stimuli 6 times in a different random order. 
 
-Talk about it.
+The fMRI image was preprocessed to MNI template brain image and further normalized into MNI space and resampled to 3 by 3 by 6 $mm^3$ voxels.
 
+The original dataset we started to work on consists of 9 files, each file containing data for a single subject. And the format of each file is as follows: \begin{itemize}
+\item \textbf{META} : contains identifier of subject, number of trials, number of voxels activated for the subject during the entire trial, dimension of 3-dimensional coordinates of voxels, mapping info from voxel coordinate to voxel column in data, and inverse mapping info. 
+\item \textbf{INFO} : contains word (stimulus), semantic category of the stimulus, and the number of the stimulus has been presented to the subject.
+\item \textbf{DATA} : contains vectors of voxels for each of 360 trials. For each trial, there is a 1 by V voxel vector, where V is provided in \textbf{META} as nvoxel  \\
+\end{itemize}
+
+\subsection{Customized Dataset}
+
+For our purpose of training logistic regression classifier and artificial neural network, we customized the original dataset. What we noticed is that for each person, the numbers of voxels activated are different. Thus, when we simply used the 1 by nvoxel vector as a feature vector for each data instance,   each of the subject has different dimension of features. 
+
+Since we were provided the range of x,y,z coordinates of voxels in meta field, for each data instance, we initialized 3-d zero array of dimension (dimx, dimy, dimz), filled corresponding voxel value by using colToCoord info, and flattened the 3-d array, resulting into 1 by dimx*dimy*dimz vector. Thus, the basic feature is to represent each data instance as 1 by dimx*dimy*dimz vector. 
+
+And the second type of feature was extracted by applying  
+Linear Discriminant Analysis (LDA) to the data matrix X whose $i$th row is 1 by dimx*dimy*dimz vector of $i$th data instance.
+
+The third type of feature was extracted by applying Principal Component Analysis (PCA) to the same data matrix X used in LDA extractoin. We extracted the first 200 PCA and projected all data on those principal components. In this case, each data instance's feature is 1 by 200 vector.  
+\section{Baseline Approach I: Logistic Regression}
+
+As the first baseline approach, we implemented multinomial logistic regression.  
+The L2 regularization was used, and the gradient descent was used for optimization of parameters. 
+
+For evaluation of the classifier's performance, we did nine evaluations such that in $i$ th evaluation, we used all the data from subject except $i$th subject's data for training and evaluated the accuracy of classifier for the unused $i$th subject's data. And we took average of those nine accuracies. 
+
+For Logistic Regression classifier, we used all three types of features described in section 2.2. The results are provided in section 7 along with performances of other approaches. 
+\newpage
+\section{Baseline Approach II: Artificial Neural Network}
+
+As the second baseline approach, we implemented Artificial Neural Network (ANN) with two hidden layers, each layer having 1024 hidden units, and RELU activation unit. 
+
+For evaluation of the classifier's performance, we did nine evaluations such that in $i$ th evaluation, we used all the data from subject except $i$th subject's data for training and evaluated the accuracy of classifier for the unused $i$th subject's data. And we took average of those nine accuracies. 
+
+For ANN classifier, we used two types of features, LDA and PCA, described in section 2.2. The results are provided in section 7 along with performances of other approaches. When we used the first type feature where each data instance is 1 by xdim*ydim*zdim for each instance, each data instance becomes a sparse vector with nonzero elements ratio being approximately $\frac{1}{3}$. Having very sparse vector representation for each data instance resulted in underflow in back-propagation within ANN, thus we experimented ANN classifier only with PCA and LDA features.  
 \section{CNN Architecture}
 
 Talk about it.
@@ -107,14 +118,50 @@ Talk about it.
 Talk about it.
 
 \section{Results}
-
 Show table. Compare accuracies based on different settings. Compare with baseline and random choice.
+\begin{table}[h]
+\centering
+\caption{Logistic Regression}
+\label{my-label}
+\begin{tabular}{|c|c|}
+\hline
+\textbf{Feature Type} & \textbf{Accuracy} \\ \hline
+Basic                 &                   \\ \hline
+PCA                   &                   \\ \hline
+LDA                   &                   \\ \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Artificial Neural Network}
+\label{my-label}
+\begin{tabular}{|c|c|}
+\hline
+\textbf{Feature Type} & \textbf{Accuracy} \\ \hline
+PCA                   &                   \\ \hline
+LDA                   &                   \\ \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Convolutional Neural Network}
+\label{my-label}
+\begin{tabular}{|c|c|}
+\hline
+\textbf{Feature Type} & \textbf{Accuracy} \\ \hline
+Basic                 &                   \\ \hline
+PCA                   &                   \\ \hline
+LDA                   &                   \\ \hline
+\end{tabular}
+\end{table}
 
 \subsection{Qualitative Evaluation}
 
 Maybe talk about sample images.
 
-\section{Discussion}
+\section{Direction for the Rest of Semester}
 
 Our results show something. Some possible improvements might be something.
 
