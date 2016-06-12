@@ -30,6 +30,7 @@ class ConvolutionalNetwork:
         return dataset.reshape((-1, self.image_size_x, self.image_size_y, num_channels)).astype(np.float32)
 
     def set_datasets(self, dim, data, labels):
+        print data.shape
         num_total_data = 360 * 9 * dim
         num_train_offset = num_total_data / 9 * 7
         num_valid_offset = num_train_offset + (num_total_data / 9)
@@ -110,9 +111,10 @@ class ConvolutionalNetwork:
 
 
 if __name__ == "__main__":
-    data, labels = load_data()
+    data, labels = load_data(True)
+
     data_dim_x, data_dim_x_label, data_dim_y, data_dim_y_label, data_dim_z, data_dim_z_label = convert_1d_to_3d(data, labels)
 
     convX = ConvolutionalNetwork(dim_z, dim_y)
     convX.set_datasets(dim_x, data_dim_x, data_dim_x_label)
-    convX.train()
+    #convX.train()

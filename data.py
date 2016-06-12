@@ -82,6 +82,8 @@ def convert_1d_to_3d(data_X, data_Y):
     :return: data sets and label sets for each axis
     """
 
+    data_X = data_X.tocsr()
+    
     data_dim_x = []  # slices along x-axis (has shape of (total_trials * dim_x, dim_z, dim_y))
     data_dim_x_label = []  # contains (total_trials * dim_x) labels
     data_dim_y = []  # slices along y-axis (has shape of (total_trials * dim_y, dim_z, dim_x))

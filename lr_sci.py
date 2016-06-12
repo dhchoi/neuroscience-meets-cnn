@@ -17,17 +17,13 @@ Y = pickle.load(fy)
 temp = np.array([range(0,60)])
 Y = (Y.dot(temp.T)).ravel()
 
-#logreg = linear_model.LogisticRegression(penalty='l2', solver='sag', verbose=1)
-logreg = linear_model.LogisticRegression(penalty='l2', solver='newton-cg', n_jobs = -1, verbose=1)
-
 num_subjects = 9
 tot = 0
 for i in range(num_subjects):
     print "=== using subject", i+1, "as test set"
+    logreg = linear_model.LogisticRegression(penalty='l2', solver='newton-cg', n_jobs = -1, verbose=1)
     X = np.concatenate((X[360:], X[:360]), axis=0)
     Y = np.concatenate((Y[360:], Y[:360]), axis=0)
-    #print X[:X.shape[0]-360,:].shape
-    #print Y[:Y.shape[0]-360].shape
     logreg.fit(X[:X.shape[0]-360,:], Y[:Y.shape[0]-360])
     acc = sum(logreg.predict(X[3240-360:,:])==Y[3240-360:]) / 360.0
     print "accuracy : ", acc
