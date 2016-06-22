@@ -137,3 +137,6 @@ if __name__ == "__main__":
         data = np.concatenate((data[n:], data[:n]), axis=0)
         labels = np.concatenate((labels[n:], labels[:n]), axis=0)
         train(data, labels)
+
+        
+        

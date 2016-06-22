@@ -1,3 +1,7 @@
+"""
+Author : Yongjin Cho (ycho1@andrew.cmu.edu)
+"""
+
 import numpy as np
 import tensorflow as tf
 from data import load_data, convert_1d_to_3d, dim_x, dim_y, dim_z
@@ -14,6 +18,7 @@ num_hidden = 64
 
 def accuracy(predictions, labels):
     return 100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1)) / predictions.shape[0]
+
 
 
 class ConvolutionalNetwork:

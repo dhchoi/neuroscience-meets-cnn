@@ -22,7 +22,8 @@ def load_data(from_stored_data=False):
     """
 
     if from_stored_data:
-        data_X = pickle.load(open(file_X, "rb"))
+        #data_X = pickle.load(open(file_X, "rb"))
+        data_X = pickle.load(open("x_sparse_small.p", "rb"))
         data_Y = pickle.load(open(file_Y, "rb"))
         return data_X, data_Y
 
@@ -41,7 +42,6 @@ def load_data(from_stored_data=False):
         nvoxels = meta["nvoxels"][0][0][0][0]
         colToCoord = meta["colToCoord"][0][0]
         coordToCol = meta["coordToCol"][0][0]
-
         for num_trial in range(len(trials)):
             # create feature vectors
             voxels = trials[num_trial][0][0]
@@ -119,4 +119,4 @@ def convert_1d_to_3d(data_X, data_Y):
 
 if __name__ == "__main__":
     data_X, data_Y = load_data()
-    data_dim_x, data_dim_x_label, data_dim_y, data_dim_y_label, data_dim_z, data_dim_z_label = convert_1d_to_3d(data_X, data_Y)
+    #data_dim_x, data_dim_x_label, data_dim_y, data_dim_y_label, data_dim_z, data_dim_z_label = convert_1d_to_3d(data_X, data_Y)
