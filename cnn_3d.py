@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from data import load_data, convert_1d_to_3d, dim_x, dim_y, dim_z
+import pickle
+from data import load_data, convert_1d_to_3d, dim_x, dim_y, dim_z, dim_x_half
 
 num_labels = 60
 num_steps = 1001
@@ -13,6 +14,8 @@ num_hidden = 1024
 dropout = 0.5
 
 def accuracy(predictions, labels):
+    a = np.argmax(predictions,1)
+    b = np.argmax(labels, 1)
     return 100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1)) / predictions.shape[0]
 
 
@@ -32,6 +35,7 @@ class ConvolutionalNetwork:
 
     def set_datasets(self, data, labels):
         num_total_data = len(data)
+        #num_train_offset = num_total_data / 9 * 7
         num_train_offset = num_total_data / 9 * 7
         num_valid_offset = num_train_offset + (num_total_data / 9)
         num_test_offset = num_valid_offset + (num_total_data / 9)
@@ -43,9 +47,9 @@ class ConvolutionalNetwork:
         self.test_dataset = self.reformat(data[num_valid_offset:, :, :, :])
         self.test_labels = labels[num_valid_offset:, :]
 
-        #print 'Training set', self.train_dataset.shape, self.train_labels.shape
-        #print 'Validation set', self.valid_dataset.shape, self.valid_labels.shape
-        #print 'Test set', self.test_dataset.shape, self.test_labels.shape
+        print 'Training set', self.train_dataset.shape, self.train_labels.shape
+        print 'Validation set', self.valid_dataset.shape, self.valid_labels.shape
+        print 'Test set', self.test_dataset.shape, self.test_labels.shape
 
     def train(self):
         """
@@ -93,7 +97,7 @@ class ConvolutionalNetwork:
             # Layer 3 (fully connected)
             #weights3 = weight_var([self.image_size_x // 4 * self.image_size_y // 4
             #                       * self.image_size_z // 4 * out_features2, num_hidden])
-            weights3 = weight_var([13*16*6*64, num_hidden])
+            weights3 = weight_var([3*7*3*64, num_hidden])
             biases3 = bias_var([num_hidden])
             # Layer 4 (output)
             weights4 = weight_var([num_hidden, num_labels])
@@ -107,7 +111,7 @@ class ConvolutionalNetwork:
                 conv1 = tf.nn.relu(conv1 + biases1)
                 print "conv1.shape (after conv)", conv1.get_shape()
                 #conv1 = max_pool_kxk(conv1, 2)  # pool = `patch_size`/2 x `patch_size`/2 x `out_features1`
-                conv1 = max_pool3d(conv1, 2)
+                conv1 = max_pool3d(conv1, 5)
                 print "conv1.shape (after pool)", conv1.get_shape()
                 if dropout:
                     conv1 = tf.nn.dropout(conv1, dropout)
@@ -139,7 +143,7 @@ class ConvolutionalNetwork:
             self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits, tf_train_labels))
 
             # Optimizer.
-            self.optimizer = tf.train.GradientDescentOptimizer(0.05).minimize(self.loss)
+            self.optimizer = tf.train.GradientDescentOptimizer(0.0001).minimize(self.loss)
 
             # Predictions for the training, validation, and test data.
             self.train_prediction = tf.nn.softmax(logits)
@@ -148,13 +152,14 @@ class ConvolutionalNetwork:
 
         with tf.Session(graph=graph) as session:
             tf.initialize_all_variables().run()
+            print 'initialization done'
             for step in range(num_steps):
                 offset = (step * batch_size) % (self.train_labels.shape[0] - batch_size)
                 batch_data = self.train_dataset[offset:(offset + batch_size), :, :, :]
                 batch_labels = self.train_labels[offset:(offset + batch_size), :]
                 feed_dict = {tf_train_dataset: batch_data, tf_train_labels: batch_labels}
                 _, l, predictions = session.run([self.optimizer, self.loss, self.train_prediction], feed_dict=feed_dict)
-                if (step % 50 == 0):
+                if (step % 10 == 0):
                     print('Minibatch loss at step %d: %f' % (step, l))
                     print('Minibatch accuracy: %.1f%%' % accuracy(predictions, batch_labels))
                     print('Validation accuracy: %.1f%%' % accuracy(self.valid_prediction.eval(), self.valid_labels))
@@ -162,15 +167,19 @@ class ConvolutionalNetwork:
 
 
 if __name__ == "__main__":
-    data, labels = load_data(True)
+    #data, labels = load_data(True)
+    data = pickle.load(open('ind_1_x'))
+    labels = pickle.load(open('ind_1_y'))
     data = data.todense()
-
+        
     data_3d = []  # data_3d.shape = (num_data, dim_x, dim_y, dim_z)
+    data_3d = []  # data_3d.shape = (num_data, dim_x_half, dim_y, dim_z)
     for i in range(len(data)):
-        d_3d = np.squeeze(np.asarray(data[i])).reshape((dim_x, dim_y, dim_z))
+        d_3d = np.squeeze(np.asarray(data[i])).reshape((dim_x_half, dim_y, dim_z))
         data_3d.append(d_3d)
     data_3d = np.array(data_3d)
 
-    conv_net = ConvolutionalNetwork(dim_x, dim_y, dim_z)
-    conv_net.set_datasets(data_3d, labels)
-    conv_net.train()
+    with tf.device('/gpu:1'):
+        conv_net = ConvolutionalNetwork(dim_x_half, dim_y, dim_z)
+        conv_net.set_datasets(data_3d, labels)
+        conv_net.train()

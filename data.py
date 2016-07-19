@@ -2,11 +2,13 @@ import pickle
 import numpy as np
 import scipy.io as sio
 from scipy import sparse as sp
+import sys
 
 num_subjects = 9
 num_words_per_cond = 5
 num_conds = 12
 dim_x = 51
+dim_x_half = 25
 dim_y = 61
 dim_z = 23
 
@@ -24,13 +26,18 @@ def load_data(from_stored_data=False):
     if from_stored_data:
         #data_X = pickle.load(open(file_X, "rb"))
         data_X = pickle.load(open("x_sparse_small.p", "rb"))
-        data_Y = pickle.load(open(file_Y, "rb"))
+        #data_Y = pickle.load(open(file_Y, "rb"))
+        data_Y = pickle.load(open("y_sparse_small.p", "rb"))
         return data_X, data_Y
 
     data_X = None
     data_Y = None
 
     for num_subject in range(num_subjects):
+        print "subject :", str(num_subject+1), " processing started  "
+        ind_data_x = None
+        ind_data_y = None
+        
         subject_data = sio.loadmat("data/data-science-P" + str(num_subject + 1) + ".mat")
 
         # big three headers
@@ -43,15 +50,23 @@ def load_data(from_stored_data=False):
         colToCoord = meta["colToCoord"][0][0]
         coordToCol = meta["coordToCol"][0][0]
         for num_trial in range(len(trials)):
+            sys.stdout.write(str(num_trial)+" ")
+            sys.stdout.flush()
             # create feature vectors
             voxels = trials[num_trial][0][0]
-            feature_vec = np.zeros(dim_x * dim_y * dim_z)
+            #feature_vec = np.zeros(dim_x * dim_y * dim_z)
+            feature_vec = np.zeros((dim_x_half, dim_y, dim_z))
             for i in range(len(voxels)):
+                # save only the left of the voxels to decrease the dimension of the vector 
                 colInfo = colToCoord[i, :]
                 x = colInfo[0] - 1  # index in data starts from 1
                 y = colInfo[1] - 1  # same
                 z = colInfo[2] - 1  # same
-                feature_vec[z * (dim_x * dim_y) + y * dim_x + x] = voxels[i]
+                if x < dim_x_half:
+                    feature_vec[x][y][z] = voxels[i]
+                #feature_vec[z * (dim_x * dim_y) + y * dim_x + x] = voxels[i]
+                #feature_vec[z * (dim_x_half * dim_y) + y * dim_x_half + x] = voxels[i]
+            feature_vec = feature_vec.flatten()
             feature_vec = sp.csr_matrix(feature_vec)
 
             # create label vectors
@@ -60,13 +75,22 @@ def load_data(from_stored_data=False):
             word_number = trial_info[3][0][0] - 1  # starts from 1 (1 ~ 5)
             label_vec = np.zeros(num_conds * num_words_per_cond)
             label_vec[cond_number * num_words_per_cond + word_number] = 1
+            
             # append data
-            data_X = sp.vstack((data_X, feature_vec)) if data_X is not None else feature_vec
-            data_Y = np.vstack((data_Y, label_vec)) if data_Y is not None else label_vec
+            #data_X = sp.vstack((data_X, feature_vec)) if data_X is not None else feature_vec
+            #data_Y = np.vstack((data_Y, label_vec)) if data_Y is not None else label_vec
+            ind_data_x = sp.vstack((ind_data_x, feature_vec)) if ind_data_x is not None else feature_vec
+            ind_data_y = np.vstack((ind_data_y, label_vec)) if ind_data_y is not None else label_vec
 
+        # save ind_data files
+        pickle.dump(ind_data_x, open("ind_"+str(num_subject+1)+"_x", "wb"))
+        pickle.dump(ind_data_y, open("ind_"+str(num_subject+1)+"_y", "wb"))
+
+        print "subject :", str(num_subject+1), " processing done "
+            
     # save data file
-    pickle.dump(data_X, open(file_X, "wb"))
-    pickle.dump(data_Y, open(file_Y, "wb"))
+    #pickle.dump(data_X, open(file_X, "wb"))
+    #pickle.dump(data_Y, open(file_Y, "wb"))
 
     return data_X, data_Y
 
