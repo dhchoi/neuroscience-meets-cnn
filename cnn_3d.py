@@ -1,12 +1,13 @@
 import numpy as np
 import tensorflow as tf
 import pickle
+import os, random
 from data import load_data, convert_1d_to_3d, dim_x, dim_y, dim_z, dim_x_half
 
 num_labels = 60
-num_steps = 1001
+num_steps = 1000000
 
-batch_size = 1
+batch_size = 15
 patch_size = 5
 out_features1 = 32
 out_features2 = 64
@@ -16,14 +17,19 @@ dropout = 0.5
 def accuracy(predictions, labels):
     a = np.argmax(predictions,1)
     b = np.argmax(labels, 1)
-    return 100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1)) / predictions.shape[0]
+    acc = 100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1)) / predictions.shape[0]
+    #tf.scalar_summary('accuracy/', acc)
+    return acc
 
 
 class ConvolutionalNetwork:
     def __init__(self, image_size_x, image_size_y, image_size_z):
-        self.image_size_x = image_size_x
-        self.image_size_y = image_size_y
-        self.image_size_z = image_size_z
+        #self.image_size_x = image_size_x
+        #self.image_size_y = image_size_y
+        #self.image_size_z = image_size_z
+        self.image_size_x = 25
+        self.image_size_y = 61
+        self.image_size_z = 23
 
     def reformat(self, dataset):
         """
@@ -31,13 +37,15 @@ class ConvolutionalNetwork:
           - convolutions need the image data formatted as a cube (width by height by #channels)
           - labels as float 1-hot encodings.
         """
-        return dataset.reshape((-1, self.image_size_x, self.image_size_y, self.image_size_z, 1)).astype(np.float32)
+        #return dataset.reshape((-1, self.image_size_x, self.image_size_y, self.image_size_z, 1)).astype(np.float32)
+        return dataset.reshape((-1, 25, 61, 23, 1)).astype(np.float32)
 
     def set_datasets(self, data, labels):
         num_total_data = len(data)
-        #num_train_offset = num_total_data / 9 * 7
         num_train_offset = num_total_data / 9 * 7
+        #num_train_offset = num_total_data / 6 * 5
         num_valid_offset = num_train_offset + (num_total_data / 9)
+        #num_valid_offset = num_train_offset
         num_test_offset = num_valid_offset + (num_total_data / 9)
 
         self.train_dataset = self.reformat(data[0:num_train_offset, :, :, :])
@@ -50,7 +58,7 @@ class ConvolutionalNetwork:
         print 'Training set', self.train_dataset.shape, self.train_labels.shape
         print 'Validation set', self.valid_dataset.shape, self.valid_labels.shape
         print 'Test set', self.test_dataset.shape, self.test_labels.shape
-
+        
     def train(self):
         """
         Two convolutional layers, followed by one fully connected layer, with stride of 2.
@@ -68,8 +76,8 @@ class ConvolutionalNetwork:
         def conv3d(input, weights):
             return tf.nn.conv3d(input, weights, strides=[1,1,1,1,1], padding='SAME')
 
-        def max_pool3d(input, k):
-            return tf.nn.max_pool3d(input, ksize=[1,k,k,k,1], strides=[1,k,k,k,1], padding='SAME')
+        def max_pool3d(input, k, s):
+            return tf.nn.max_pool3d(input, ksize=[1,k,k,k,1], strides=[1,s,s,s,1], padding='SAME')
         
         def max_pool_kxk(input, k):
             return tf.nn.max_pool(input, ksize=[1, k, k, 1], strides=[1, k, k, 1], padding='SAME')
@@ -78,6 +86,7 @@ class ConvolutionalNetwork:
 
         with graph.as_default():
             # Input data.
+            tf_train_dataset_tot = tf.constant(self.train_dataset)
             tf_train_dataset = tf.placeholder(tf.float32,
                                               shape=(batch_size, self.image_size_x,
                                                      self.image_size_y, self.image_size_z,1))
@@ -97,21 +106,37 @@ class ConvolutionalNetwork:
             # Layer 3 (fully connected)
             #weights3 = weight_var([self.image_size_x // 4 * self.image_size_y // 4
             #                       * self.image_size_z // 4 * out_features2, num_hidden])
-            weights3 = weight_var([3*7*3*64, num_hidden])
+            weights3 = weight_var([4032, num_hidden])
             biases3 = bias_var([num_hidden])
             # Layer 4 (output)
             weights4 = weight_var([num_hidden, num_labels])
             biases4 = bias_var([num_labels])
 
+
+            def preprocess(data):
+                result = np.zeros((batch_size, 17, 53, 15, 1))
+                print data.shape
+                for i in range(data.shape[0]):
+                    ith = data[i,:,:,:,:]
+                    x_rand = random.randint(0,7)
+                    y_rand = random.randint(0,7)
+                    z_rand = random.randint(0,7)
+                    result[i] = ith[x_rand:x_rand+17, y_rand:y_rand+53, z_rand:z_rand+15,:]
+                return result
+                    
+            
             # Model.
             def model(data, dropout=True):
+                # do dropout on the input data itself i.e. blankout 
+                data = tf.nn.dropout(data, 0.5)
+                
                 # Layer 1 (conv): data = `patch_size` x `patch_size` x `image_size_z`
                 print "conv1.shape (before conv)", data.get_shape()
                 conv1 = conv3d(data, weights1)  # conv = `patch_size` x `patch_size` x `out_features1`
                 conv1 = tf.nn.relu(conv1 + biases1)
                 print "conv1.shape (after conv)", conv1.get_shape()
                 #conv1 = max_pool_kxk(conv1, 2)  # pool = `patch_size`/2 x `patch_size`/2 x `out_features1`
-                conv1 = max_pool3d(conv1, 5)
+                conv1 = max_pool3d(conv1, 3,3)
                 print "conv1.shape (after pool)", conv1.get_shape()
                 if dropout:
                     conv1 = tf.nn.dropout(conv1, dropout)
@@ -121,7 +146,7 @@ class ConvolutionalNetwork:
                 conv2 = conv3d(conv1, weights2)  # conv = `patch_size` x `patch_size` x `out_features2`
                 conv2 = tf.nn.relu(conv2 + biases2)
                 print "conv2.shape (after conv)", conv2.get_shape()
-                conv2 = max_pool3d(conv2, 2)  # pool = `patch_size`/2/2 x `patch_size`/2/2 x `out_features2`
+                conv2 = max_pool3d(conv2, 3, 3)  # pool = `patch_size`/2/2 x `patch_size`/2/2 x `out_features2`
                 print "conv2.shape (after pool)", conv2.get_shape()
                 if dropout:
                     conv2 = tf.nn.dropout(conv2, dropout)
@@ -143,33 +168,43 @@ class ConvolutionalNetwork:
             self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits, tf_train_labels))
 
             # Optimizer.
-            self.optimizer = tf.train.GradientDescentOptimizer(0.0001).minimize(self.loss)
-
+            # self.optimizer = tf.train.GradientDescentOptimizer(0.0001).minimize(self.loss)
+            self.optimizer = tf.train.AdamOptimizer(0.001).minimize(self.loss)
+            
             # Predictions for the training, validation, and test data.
             self.train_prediction = tf.nn.softmax(logits)
             self.valid_prediction = tf.nn.softmax(model(tf_valid_dataset, False))
             self.test_prediction = tf.nn.softmax(model(tf_test_dataset, False))
 
         with tf.Session(graph=graph) as session:
+            f_log = open('blankout.log' , 'wb')
             tf.initialize_all_variables().run()
             print 'initialization done'
             for step in range(num_steps):
                 offset = (step * batch_size) % (self.train_labels.shape[0] - batch_size)
                 batch_data = self.train_dataset[offset:(offset + batch_size), :, :, :]
+                #batch_data = preprocess(batch_data)
                 batch_labels = self.train_labels[offset:(offset + batch_size), :]
                 feed_dict = {tf_train_dataset: batch_data, tf_train_labels: batch_labels}
-                _, l, predictions = session.run([self.optimizer, self.loss, self.train_prediction], feed_dict=feed_dict)
-                if (step % 10 == 0):
+                _ , l, predictions = session.run([self.optimizer, self.loss, self.train_prediction], feed_dict=feed_dict)
+                #summary, predictions = session.run([self.optimizer, self.loss, self.train_prediction], feed_dict=feed_dict)
+                if (step % 50 == 0):
                     print('Minibatch loss at step %d: %f' % (step, l))
-                    print('Minibatch accuracy: %.1f%%' % accuracy(predictions, batch_labels))
-                    print('Validation accuracy: %.1f%%' % accuracy(self.valid_prediction.eval(), self.valid_labels))
-            print('Test accuracy: %.1f%%' % accuracy(self.test_prediction.eval(), self.test_labels))
+                    minibatch_acc = accuracy(predictions, batch_labels)
+                    print('Minibatch accuracy: %.1f%%' % minibatch_acc)
+                    val_acc = accuracy(self.valid_prediction.eval(), self.valid_labels)
+                    print('Validation accuracy: %.1f%%' % val_acc)
+                    test_acc = accuracy(self.test_prediction.eval(), self.test_labels)
+                    print('Test accuracy: %.1f%%' % test_acc)
+                    f_log.write(('%d, %f, %.1f%% , %.1f%%, %.1f%% \n' % (step, l, minibatch_acc, val_acc, test_acc)))
 
 
 if __name__ == "__main__":
     #data, labels = load_data(True)
-    data = pickle.load(open('ind_1_x'))
-    labels = pickle.load(open('ind_1_y'))
+    data = pickle.load(open('./data/tot_x'))
+    labels = pickle.load(open('./data/tot_y'))
+    #data = pickle.load(open('./data/12_x'))
+    #labels = pickle.load(open('./data/tot_y'))
     data = data.todense()
         
     data_3d = []  # data_3d.shape = (num_data, dim_x, dim_y, dim_z)
@@ -179,7 +214,8 @@ if __name__ == "__main__":
         data_3d.append(d_3d)
     data_3d = np.array(data_3d)
 
-    with tf.device('/gpu:1'):
-        conv_net = ConvolutionalNetwork(dim_x_half, dim_y, dim_z)
-        conv_net.set_datasets(data_3d, labels)
-        conv_net.train()
+    os.environ["CUDA_VISIBLE_DEVICES"]="3"
+    
+    conv_net = ConvolutionalNetwork(dim_x_half, dim_y, dim_z)
+    conv_net.set_datasets(data_3d, labels)
+    conv_net.train()
