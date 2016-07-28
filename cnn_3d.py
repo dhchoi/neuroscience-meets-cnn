@@ -3,6 +3,9 @@ import tensorflow as tf
 import pickle
 import os, random
 from data import load_data, convert_1d_to_3d, dim_x, dim_y, dim_z, dim_x_half
+import pdb
+import preprocess as prep
+import time
 
 num_labels = 60
 num_steps = 1000000
@@ -38,7 +41,7 @@ class ConvolutionalNetwork:
           - labels as float 1-hot encodings.
         """
         #return dataset.reshape((-1, self.image_size_x, self.image_size_y, self.image_size_z, 1)).astype(np.float32)
-        return dataset.reshape((-1, 25, 61, 23, 1)).astype(np.float32)
+        return dataset.reshape((-1, 21, 57, 20, 1)).astype(np.float32)
 
     def set_datasets(self, data, labels):
         num_total_data = len(data)
@@ -48,11 +51,11 @@ class ConvolutionalNetwork:
         #num_valid_offset = num_train_offset
         num_test_offset = num_valid_offset + (num_total_data / 9)
 
-        self.train_dataset = self.reformat(data[0:num_train_offset, :, :, :])
+        self.train_dataset = (self.reformat(data[0:num_train_offset, :, :, :]))
         self.train_labels = labels[0:num_train_offset, :]
-        self.valid_dataset = self.reformat(data[num_train_offset:num_valid_offset, :, :, :])
+        self.valid_dataset = (self.reformat(data[num_train_offset:num_valid_offset, :, :, :]))
         self.valid_labels = labels[num_train_offset:num_valid_offset, :]
-        self.test_dataset = self.reformat(data[num_valid_offset:, :, :, :])
+        self.test_dataset = (self.reformat(data[num_valid_offset:, :, :, :]))
         self.test_labels = labels[num_valid_offset:, :]
 
         print 'Training set', self.train_dataset.shape, self.train_labels.shape
@@ -70,29 +73,25 @@ class ConvolutionalNetwork:
         def bias_var(shape):
             return tf.Variable(tf.constant(0.1, shape=shape))
 
-        def conv2d(input, weights):
-            return tf.nn.conv2d(input, weights, strides=[1, 1, 1, 1], padding='SAME')
-
         def conv3d(input, weights):
             return tf.nn.conv3d(input, weights, strides=[1,1,1,1,1], padding='SAME')
 
         def max_pool3d(input, k, s):
             return tf.nn.max_pool3d(input, ksize=[1,k,k,k,1], strides=[1,s,s,s,1], padding='SAME')
         
-        def max_pool_kxk(input, k):
-            return tf.nn.max_pool(input, ksize=[1, k, k, 1], strides=[1, k, k, 1], padding='SAME')
-
         graph = tf.Graph()
 
         with graph.as_default():
             # Input data.
-            tf_train_dataset_tot = tf.constant(self.train_dataset)
-            tf_train_dataset = tf.placeholder(tf.float32,
-                                              shape=(batch_size, self.image_size_x,
-                                                     self.image_size_y, self.image_size_z,1))
+            #tf_train_dataset = tf.placeholder(tf.float32,
+            #                                  shape=(batch_size, self.image_size_x,
+            #                                         self.image_size_y, self.image_size_z,1))
+            train_shape = self.train_dataset.shape[1:]
+            tf_train_dataset = tf.placeholder(tf.float32, shape=(batch_size, train_shape[0], train_shape[1],
+                                                                 train_shape[2], train_shape[3]))
             tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
-            tf_valid_dataset = tf.constant(self.valid_dataset)
-            tf_test_dataset = tf.constant(self.test_dataset)
+            tf_valid_dataset = tf.constant(self.valid_dataset, dtype=tf.float32)
+            tf_test_dataset = tf.constant(self.test_dataset, dtype=tf.float32)
 
             print tf_train_dataset.get_shape(), tf_valid_dataset.get_shape(), tf_test_dataset.get_shape()
             
@@ -113,16 +112,6 @@ class ConvolutionalNetwork:
             biases4 = bias_var([num_labels])
 
 
-            def preprocess(data):
-                result = np.zeros((batch_size, 17, 53, 15, 1))
-                print data.shape
-                for i in range(data.shape[0]):
-                    ith = data[i,:,:,:,:]
-                    x_rand = random.randint(0,7)
-                    y_rand = random.randint(0,7)
-                    z_rand = random.randint(0,7)
-                    result[i] = ith[x_rand:x_rand+17, y_rand:y_rand+53, z_rand:z_rand+15,:]
-                return result
                     
             
             # Model.
@@ -201,19 +190,26 @@ class ConvolutionalNetwork:
 
 if __name__ == "__main__":
     #data, labels = load_data(True)
-    data = pickle.load(open('./data/tot_x'))
-    labels = pickle.load(open('./data/tot_y'))
-    #data = pickle.load(open('./data/12_x'))
+    #data = pickle.load(open('./data/tot_x'))
     #labels = pickle.load(open('./data/tot_y'))
+
+    data = pickle.load(open('data/ind_1_x', 'rb'))
+    labels = pickle.load(open('data/ind_1_y', 'rb'))
     data = data.todense()
         
     data_3d = []  # data_3d.shape = (num_data, dim_x, dim_y, dim_z)
     data_3d = []  # data_3d.shape = (num_data, dim_x_half, dim_y, dim_z)
     for i in range(len(data)):
         d_3d = np.squeeze(np.asarray(data[i])).reshape((dim_x_half, dim_y, dim_z))
+        #d_3d = np.squeeze(np.asarray(data[i])).reshape((21, 57, 20))
         data_3d.append(d_3d)
     data_3d = np.array(data_3d)
 
+    t1 = time.time()
+    data_3d, labels = prep.preprocess(data_3d, labels)
+    t2 = time.time()
+    print "%0.3f" % (t2-t1)
+    
     os.environ["CUDA_VISIBLE_DEVICES"]="3"
     
     conv_net = ConvolutionalNetwork(dim_x_half, dim_y, dim_z)
